@@ -1,0 +1,131 @@
+
+<style>
+.phase { cursor:pointer; transition: opacity .15s; }
+.phase:hover { opacity:.85; }
+.detail { display:none; }
+.detail.open { display:block; }
+</style>
+<h2 class="sr-only">NexusNotes development roadmap by phase</h2>
+
+<div id="phases" style="display:flex;flex-direction:column;gap:12px;padding:8px 0;">
+</div>
+
+<script>
+const phases = [
+  {
+    num:1, color:"#534AB7", light:"#EEEDFE", label:"Phase 1 — Core structure",
+    duration:"2–3 weeks",
+    items:[
+      "Monorepo setup (pnpm workspaces), ESLint, Prettier, tsconfig",
+      "Prisma schema: Book, Chapter, Page, Tag, Block models",
+      "Express routes: full CRUD for books, chapters, pages",
+      "Next.js: sidebar with book tree (collapsible), breadcrumb nav",
+      "Create/rename/delete book, chapter, page from UI",
+      "Deploy: Vercel (frontend) + Render (backend) + Neon (DB)",
+      "HSBC and DSA books pre-seeded so you can use it from day one"
+    ]
+  },
+  {
+    num:2, color:"#0F6E56", light:"#E1F5EE", label:"Phase 2 — Block editor + Tags",
+    duration:"2–3 weeks",
+    items:[
+      "Tiptap block editor: heading, subheading, paragraph, bullet, numbered list",
+      "Tag system: create, rename, delete, color tags per page",
+      "Tag categories: Topic / Company / Language / Difficulty",
+      "Tags displayed as colored pills, editable inline",
+      "Auto-save every 2s with debounce (no Save button needed)",
+      "Priority field: Easy / Medium / Hard on every page"
+    ]
+  },
+  {
+    num:3, color:"#854F0B", light:"#FAEEDA", label:"Phase 3 — Code + Images",
+    duration:"1–2 weeks",
+    items:[
+      "Monaco Editor code block: language selector, multiple blocks per page",
+      "Code block: title field + optional explanation text below",
+      "DSA approach blocks: Brute / Better / Optimal each with time+space complexity",
+      "Cloudinary upload: drag-drop, paste, browse — auto-compress to 480p WebP",
+      "Image viewer: zoom modal, caption, fixed-aspect frame in page"
+    ]
+  },
+  {
+    num:4, color:"#993556", light:"#FBEAF0", label:"Phase 4 — Q&A module",
+    duration:"1 week",
+    items:[
+      "Per-book Q&A section, separate from pages",
+      "Question card: collapsed by default, click to reveal answer",
+      "Add / edit / delete questions and answers inline",
+      "Difficulty tag: Easy / Medium / Hard on each question",
+      "Company tags on questions (Google, Amazon, HSBC, etc.)",
+      "Filter Q&A by difficulty or tag"
+    ]
+  },
+  {
+    num:5, color:"#185FA5", light:"#E6F1FB", label:"Phase 5 — Notes dashboard",
+    duration:"1 week",
+    items:[
+      "Landing page (/) shows sticky Notes section always first",
+      "Note types: Daily, Quick, Todo, Ideas, Interview, Internship",
+      "Each note supports paragraph, checklist, bullet, code blocks",
+      "Create / pin / delete notes, reorder by drag",
+      "Notes auto-save, timestamps shown"
+    ]
+  },
+  {
+    num:6, color:"#3B6D11", light:"#EAF3DE", label:"Phase 6 — Search + Dashboard",
+    duration:"1 week",
+    items:[
+      "PostgreSQL full-text search: title, content, tags, company, code",
+      "Global search bar (Cmd+K shortcut) returns pages, Q&As, notes",
+      "Dashboard stats: total books, chapters, pages, high-priority pages",
+      "Recently updated section, Favorites section",
+      "Filter pages globally by tag, difficulty, company, or book"
+    ]
+  },
+  {
+    num:7, color:"#5F5E5A", light:"#F1EFE8", label:"Phase 7 — Polish + export",
+    duration:"1 week",
+    items:[
+      "Revision tracker: mark page as revised, track dates",
+      "Favorite / pin / important toggles on pages, questions, notes",
+      "Export page as Markdown or PDF",
+      "Dark mode toggle",
+      "Mobile-responsive layout"
+    ]
+  }
+];
+
+const container = document.getElementById('phases');
+phases.forEach(p => {
+  const wrap = document.createElement('div');
+  wrap.style.cssText = `border:0.5px solid var(--color-border-tertiary);border-radius:12px;overflow:hidden;`;
+
+  const header = document.createElement('div');
+  header.className = 'phase';
+  header.style.cssText = `display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--color-background-secondary);`;
+  header.innerHTML = `
+    <span style="min-width:28px;height:28px;background:${p.color};border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;color:#fff;">${p.num}</span>
+    <span style="flex:1;font-size:14px;font-weight:500;color:var(--color-text-primary);">${p.label}</span>
+    <span style="font-size:12px;color:var(--color-text-secondary);">${p.duration}</span>
+    <span style="font-size:12px;color:var(--color-text-tertiary);" class="chevron">▸</span>
+  `;
+
+  const detail = document.createElement('div');
+  detail.className = 'detail';
+  detail.style.cssText = `padding:12px 16px 16px;border-top:0.5px solid var(--color-border-tertiary);`;
+  detail.innerHTML = p.items.map(i => `
+    <div style="display:flex;gap:8px;padding:4px 0;font-size:13px;color:var(--color-text-secondary);">
+      <span style="color:${p.color};margin-top:1px;">✓</span>
+      <span>${i}</span>
+    </div>`).join('');
+
+  header.addEventListener('click', () => {
+    const isOpen = detail.classList.toggle('open');
+    header.querySelector('.chevron').textContent = isOpen ? '▾' : '▸';
+  });
+
+  wrap.appendChild(header);
+  wrap.appendChild(detail);
+  container.appendChild(wrap);
+});
+</script>

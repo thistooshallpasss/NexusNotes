@@ -1,0 +1,363 @@
+'use client';
+
+import { use, useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import axios, { API_URL } from '@/lib/apiClient';
+import Link from 'next/link';
+import { serializeToMarkdown } from '@/lib/markdownSerializer';
+import BlockEditor from '@/components/editor/BlockEditor';
+import TagManager, { Tag } from '@/components/tags/TagManager';
+import { Button } from '@/components/ui/button';
+
+
+export default function PageView({ params }: { params: Promise<{ pageId: string }> }) {
+  const resolvedParams = use(params);
+  const queryClient = useQueryClient();
+
+  // Fetch page details
+  const { data: page, isLoading: isLoadingPage, isError, error } = useQuery({
+    queryKey: ['page', resolvedParams.pageId],
+    queryFn: async () => {
+      const res = await axios.get(`${API_URL}/pages/${resolvedParams.pageId}`);
+      return res.data;
+    }
+  });
+
+  // Fetch all tags for the tag manager
+  const { data: allTags = [] } = useQuery({
+    queryKey: ['tags'],
+    queryFn: async () => {
+      const res = await axios.get(`${API_URL}/tags`);
+      return res.data;
+    }
+  });
+
+  // Local state for inline inputs
+  const [titleVal, setTitleVal] = useState('');
+  const [companiesVal, setCompaniesVal] = useState('');
+  const [mutationError, setMutationError] = useState<string | null>(null);
+
+  // Sync state with query result
+  useEffect(() => {
+    if (page) {
+      setTitleVal(page.title);
+      setCompaniesVal(page.companies || '');
+    }
+  }, [page]);
+
+  // Mutations
+  const createTagMutation = useMutation({
+    mutationFn: async ({ name, color }: { name: string; color?: string }) => {
+      const res = await axios.post(`${API_URL}/tags`, { name, color });
+      return res.data;
+    },
+    onError: (err: any) => setMutationError(err.response?.data?.error || err.message || 'Failed to create tag.'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tags'] });
+      setMutationError(null);
+    }
+  });
+
+  const assignTagMutation = useMutation({
+    mutationFn: async (tag: Tag) => {
+      await axios.post(`${API_URL}/tags/assign`, { pageId: resolvedParams.pageId, tagId: tag.id });
+    },
+    onError: (err: any) => setMutationError(err.response?.data?.error || err.message || 'Failed to assign tag.'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['page', resolvedParams.pageId] });
+      setMutationError(null);
+    }
+  });
+
+  const removeTagMutation = useMutation({
+    mutationFn: async (tagId: string) => {
+      await axios.delete(`${API_URL}/tags/remove`, { params: { pageId: resolvedParams.pageId, tagId } });
+    },
+    onError: (err: any) => setMutationError(err.response?.data?.error || err.message || 'Failed to remove tag.'),
+    onSuccess: () => {
+      // Invalidate the *specific* page query so tag list refreshes correctly
+      queryClient.invalidateQueries({ queryKey: ['page', resolvedParams.pageId] });
+      setMutationError(null);
+    }
+  });
+
+  const updatePageMutation = useMutation({
+    mutationFn: async (updatedFields: any) => {
+      const res = await axios.put(`${API_URL}/pages/${resolvedParams.pageId}`, updatedFields);
+      return res.data;
+    },
+    // Optimistic update for toggles so they react immediately
+    onMutate: async (updatedFields) => {
+      if (updatedFields.isFavorite === undefined && updatedFields.isPinned === undefined && updatedFields.isImportant === undefined) return;
+      await queryClient.cancelQueries({ queryKey: ['page', resolvedParams.pageId] });
+      const previous = queryClient.getQueryData(['page', resolvedParams.pageId]);
+      queryClient.setQueryData(['page', resolvedParams.pageId], (old: any) => ({
+        ...old,
+        ...updatedFields
+      }));
+      return { previous };
+    },
+    onError: (err: any, vars, context: any) => {
+      // Roll back on failure
+      if (context?.previous) {
+        queryClient.setQueryData(['page', resolvedParams.pageId], context.previous);
+      }
+      setMutationError(err.response?.data?.error || err.message || 'Failed to update page.');
+      if (vars.title !== undefined) {
+        setTitleVal(page?.title || '');
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['page', resolvedParams.pageId] });
+      queryClient.invalidateQueries({ queryKey: ['booksTree'] });
+      setMutationError(null);
+    }
+  });
+
+  const saveBlocksMutation = useMutation({
+    mutationFn: async (content: any) => {
+      await axios.put(`${API_URL}/pages/${resolvedParams.pageId}/blocks`, { 
+        blocks: [{ type: 'tiptap', content }] 
+      });
+    },
+    onError: (err: any) => setMutationError(err.response?.data?.error || err.message || 'Failed to save page contents.'),
+    onSuccess: () => {
+      setMutationError(null);
+    }
+  });
+
+  if (isLoadingPage) {
+    return (
+      <div className="animate-pulse space-y-4">
+        <div className="h-10 bg-zinc-200 dark:bg-zinc-800 rounded w-3/4"></div>
+        <div className="h-6 bg-zinc-200 dark:bg-zinc-800 rounded w-full"></div>
+        <div className="h-6 bg-zinc-200 dark:bg-zinc-800 rounded w-5/6"></div>
+      </div>
+    );
+  }
+
+  if (isError || !page) {
+    return (
+      <div className="py-8 text-center text-red-500">
+        {isError ? `Error: ${error?.message || 'Failed to load page'}` : 'Page not found'}
+      </div>
+    );
+  }
+
+  // Format the selected tags from the Page API relation
+  const selectedTags = page.pageTags ? page.pageTags.map((pt: any) => pt.tag) : [];
+  
+  const serializeToMarkdownImported = serializeToMarkdown;
+
+  const handleExportMarkdown = () => {
+    if (!page || !page.blocks || !page.blocks[0]) return;
+    const content = page.blocks[0].content;
+    const markdown = serializeToMarkdownImported(content);
+    
+    const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `${page.title.toLowerCase().replace(/\s+/g, '-')}.md`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // Get initial content from the blocks if exists
+  const initialBlock = page.blocks && page.blocks.length > 0 ? page.blocks[0].content : undefined;
+
+  return (
+    <div className="max-w-4xl mx-auto py-8">
+      {/* Breadcrumb Navigation & Exports */}
+      {page.chapter && page.chapter.book && (
+        <div className="flex items-center justify-between gap-4 mb-4 no-print">
+          <nav className="flex items-center gap-1.5 text-xs text-zinc-500 font-medium">
+            <Link href={`/books/${page.chapter.book.id}`} className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+              {page.chapter.book.name}
+            </Link>
+            <span>/</span>
+            <Link href={`/books/${page.chapter.book.id}/${page.chapter.id}`} className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+              {page.chapter.title}
+            </Link>
+            <span>/</span>
+            <span className="text-zinc-800 dark:text-zinc-200">{page.title}</span>
+          </nav>
+          
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleExportMarkdown}
+              className="h-7 text-xs px-2.5 cursor-pointer shadow-sm"
+            >
+              Export MD
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => window.print()}
+              className="h-7 text-xs px-2.5 cursor-pointer shadow-sm"
+            >
+              Export PDF
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {mutationError && (
+        <div className="mb-4 text-xs font-semibold text-red-600 bg-red-50/50 dark:bg-red-950/15 py-2.5 px-4 rounded-xl border border-red-200/40 dark:border-red-900/40 flex items-center justify-between gap-2 no-print">
+          <span>{mutationError}</span>
+          <button 
+            onClick={() => setMutationError(null)} 
+            className="text-red-400 hover:text-red-700 dark:hover:text-red-300 font-bold px-1 py-0.5 rounded cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Inline Editable Title */}
+      <input
+        className="text-4xl font-bold tracking-tight mb-2 bg-transparent border-none outline-none focus:ring-0 w-full hover:bg-zinc-100/50 focus:bg-zinc-100/50 dark:hover:bg-zinc-800/30 dark:focus:bg-zinc-800/30 px-2 py-1 rounded transition-colors text-zinc-900 dark:text-zinc-50"
+        value={titleVal}
+        onChange={(e) => setTitleVal(e.target.value)}
+        onBlur={() => {
+          if (titleVal.trim() && titleVal.trim() !== page.title) {
+            updatePageMutation.mutate({ title: titleVal.trim() });
+          }
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.currentTarget.blur();
+          }
+        }}
+        placeholder="Enter page title..."
+      />
+
+      {/* Metadata Panel */}
+      <div className="flex flex-wrap items-center gap-4 py-3 border-b border-zinc-200 dark:border-zinc-800 text-sm text-zinc-600 dark:text-zinc-400">
+        {/* Type Selector */}
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Type</span>
+          <select
+            value={page.type || 'theory'}
+            onChange={(e) => updatePageMutation.mutate({ type: e.target.value })}
+            className="bg-transparent border border-zinc-200 dark:border-zinc-800 rounded px-2.5 py-1 text-sm text-zinc-800 dark:text-zinc-200 focus:outline-none cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800"
+          >
+            <option value="theory">Theory</option>
+            <option value="dsa">DSA</option>
+          </select>
+        </div>
+
+        {/* Difficulty/Priority Selector */}
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Difficulty</span>
+          <select
+            value={page.difficulty || ''}
+            onChange={(e) => updatePageMutation.mutate({ difficulty: e.target.value || null })}
+            className="bg-transparent border border-zinc-200 dark:border-zinc-800 rounded px-2.5 py-1 text-sm text-zinc-800 dark:text-zinc-200 focus:outline-none cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800"
+          >
+            <option value="">Not set</option>
+            <option value="Easy">Easy</option>
+            <option value="Medium">Medium</option>
+            <option value="Hard">Hard</option>
+          </select>
+        </div>
+
+        {/* Companies Input */}
+        <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+          <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Companies</span>
+          <input
+            type="text"
+            placeholder="e.g. Google, Amazon"
+            value={companiesVal}
+            onChange={(e) => setCompaniesVal(e.target.value)}
+            onBlur={() => {
+              // Use ?? to correctly handle null vs '' — null.companies and '' are both falsy
+              if (companiesVal !== (page.companies ?? '')) {
+                updatePageMutation.mutate({ companies: companiesVal });
+              }
+            }}
+            className="bg-transparent border border-zinc-200 dark:border-zinc-800 rounded px-2.5 py-1 text-sm text-zinc-800 dark:text-zinc-200 focus:outline-none w-full hover:bg-zinc-100 dark:hover:bg-zinc-800"
+          />
+        </div>
+
+        {/* Revision Tracker */}
+        <div className="flex items-center gap-1.5 border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/30 rounded-lg px-2.5 py-1 text-xs">
+          <span className="text-zinc-500 font-medium">Revised: {page.revisedAt?.length || 0} times</span>
+          {page.revisedAt?.length > 0 && (
+            <span className="text-zinc-400 dark:text-zinc-500 font-mono">
+              (Last: {new Date(page.revisedAt[page.revisedAt.length - 1]).toLocaleDateString()})
+            </span>
+          )}
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-5 px-1.5 text-[10px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 cursor-pointer"
+            onClick={() => updatePageMutation.mutate({ pushRevision: true })}
+          >
+            Mark Revised
+          </Button>
+        </div>
+
+        {/* Favorite Toggle */}
+        <button
+          onClick={() => updatePageMutation.mutate({ isFavorite: !page.isFavorite })}
+          className={`inline-flex h-8 w-8 items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-800 transition-colors cursor-pointer ${
+            page.isFavorite 
+              ? 'bg-yellow-50 border-yellow-200 text-yellow-500 dark:bg-yellow-950/20 dark:border-yellow-900/50' 
+              : 'bg-white hover:bg-zinc-50 dark:bg-zinc-950 dark:hover:bg-zinc-800'
+          }`}
+          title={page.isFavorite ? 'Unfavorite' : 'Favorite'}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill={page.isFavorite ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        </button>
+
+        {/* Important Toggle */}
+        <button
+          onClick={() => updatePageMutation.mutate({ isImportant: !page.isImportant })}
+          className={`inline-flex h-8 w-8 items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-800 transition-colors cursor-pointer ${
+            page.isImportant 
+              ? 'bg-orange-50 border-orange-200 text-orange-500 dark:bg-orange-950/20 dark:border-orange-900/50' 
+              : 'bg-white hover:bg-zinc-50 dark:bg-zinc-950 dark:hover:bg-zinc-800'
+          }`}
+          title={page.isImportant ? 'Unmark Important' : 'Mark Important'}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill={page.isImportant ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
+        </button>
+
+        {/* Pin Toggle */}
+        <button
+          onClick={() => updatePageMutation.mutate({ isPinned: !page.isPinned })}
+          className={`inline-flex h-8 w-8 items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-800 transition-colors cursor-pointer ${
+            page.isPinned 
+              ? 'bg-blue-50 border-blue-200 text-blue-500 dark:bg-blue-950/20 dark:border-blue-900/50' 
+              : 'bg-white hover:bg-zinc-50 dark:bg-zinc-950 dark:hover:bg-zinc-800'
+          }`}
+          title={page.isPinned ? 'Unpin' : 'Pin'}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill={page.isPinned ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" x2="12" y1="17" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-.44-1.24l-2.78-3.5A2 2 0 0 1 15 9.26V5a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4.26a2 2 0 0 1-.78 1.24l-2.78 3.5a2 2 0 0 0-.44 1.24z"/></svg>
+        </button>
+      </div>
+      
+      <TagManager 
+        availableTags={allTags}
+        selectedTags={selectedTags}
+        pageId={resolvedParams.pageId}
+        onCreateTag={(name, color) => createTagMutation.mutate({ name, color })}
+        onAssignTag={(tag) => assignTagMutation.mutate(tag)}
+        onRemoveTag={(tagId) => removeTagMutation.mutate(tagId)}
+      />
+
+      <div className="mt-8">
+        <BlockEditor
+          key={resolvedParams.pageId}
+          initialContent={initialBlock} 
+          onSave={(content) => saveBlocksMutation.mutate(content)} 
+        />
+      </div>
+    </div>
+  );
+}

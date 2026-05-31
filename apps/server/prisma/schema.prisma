@@ -1,0 +1,110 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Book {
+  id          String     @id @default(uuid())
+  name        String
+  desc        String?
+  priority    String?    // e.g., Low, Medium, High
+  cover       String?
+  isFavorite  Boolean    @default(false)
+  isPinned    Boolean    @default(false)
+  isImportant Boolean    @default(false)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  chapters    Chapter[]
+  questions   Question[]
+}
+
+model Chapter {
+  id          String    @id @default(uuid())
+  title       String
+  bookId      String
+  book        Book      @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  order       Int       @default(0)
+  priority    String?
+  isFavorite  Boolean   @default(false)
+  isPinned    Boolean   @default(false)
+  isImportant Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+  pages       Page[]
+}
+
+model Page {
+  id          String    @id @default(uuid())
+  title       String
+  chapterId   String
+  chapter     Chapter   @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  type        String    @default("theory") // dsa, theory
+  difficulty  String?
+  companies   String?   // comma-separated or JSON array
+  isFavorite  Boolean   @default(false)
+  isPinned    Boolean   @default(false)
+  isImportant Boolean   @default(false)
+  revisedAt   DateTime[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @default(now()) @updatedAt
+  blocks      Block[]
+  pageTags    PageTag[]
+}
+
+model Block {
+  id          String    @id @default(uuid())
+  pageId      String
+  page        Page      @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  type        String    // e.g., text, code, image
+  content     Json
+  order       Int       @default(0)
+  language    String?
+  complexity  String?
+}
+
+model Tag {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  color       String?
+  category    String?   // topic, company, etc
+  pageTags    PageTag[]
+}
+
+model PageTag {
+  pageId      String
+  page        Page      @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  tagId       String
+  tag         Tag       @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([pageId, tagId])
+}
+
+model Question {
+  id          String    @id @default(uuid())
+  bookId      String
+  book        Book      @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  question    String
+  answer      String?
+  difficulty  String?
+  companies   String?
+  tags        String?
+  isFavorite  Boolean   @default(false)
+  isPinned    Boolean   @default(false)
+  isImportant Boolean   @default(false)
+}
+
+model Note {
+  id          String    @id @default(uuid())
+  title       String
+  type        String
+  content     Json
+  isFavorite  Boolean   @default(false)
+  isPinned    Boolean   @default(false)
+  isImportant Boolean   @default(false)
+  order       Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
