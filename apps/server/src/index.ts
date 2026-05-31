@@ -12,9 +12,32 @@ if (!process.env.API_KEY) {
 const app: Express = express();
 const port = process.env.PORT || 5001;
 
-app.use(cors({ origin: process.env.ALLOWED_ORIGIN || 'http://localhost:3000' }));
+const allowedOrigins = process.env.ALLOWED_ORIGIN
+  ? process.env.ALLOWED_ORIGIN.split(',').map((o) => o.trim())
+  : [];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps, postman, or curl)
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    const isAllowed =
+      allowedOrigins.includes(origin) ||
+      origin === 'http://localhost:3000' ||
+      origin.endsWith('.onrender.com');
+
+    if (isAllowed) {
+      return callback(null, true);
+    } else {
+      return callback(null, new Error('Not allowed by CORS') as any);
+    }
+  }
+}));
 app.use(express.json({ limit: '10mb' }));
 app.use(authMiddleware);
+
 
 // Basic health check
 app.get('/api/health', (req: Request, res: Response) => {
