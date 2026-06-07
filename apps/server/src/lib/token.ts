@@ -1,7 +1,8 @@
 import crypto from 'crypto';
 
 // A random session secret generated at startup to prevent forgery
-const sessionSecret = crypto.randomBytes(32).toString('hex');
+const sessionSecret = process.env.SESSION_SECRET || 'fallback-local-session-secret-key-12345';
+
 
 /**
  * Generates a signed, base64-encoded session token that expires in 24 hours.

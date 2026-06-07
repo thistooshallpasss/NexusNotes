@@ -8,6 +8,7 @@ import axios, { API_URL } from '@/lib/apiClient';
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { useTheme } from 'next-themes';
 
@@ -20,26 +21,26 @@ export default function Sidebar() {
   const [newBookName, setNewBookName] = useState('');
   const [newChapterTitle, setNewChapterTitle] = useState('');
   const [newPageTitle, setNewPageTitle] = useState('');
+  const [newPageType, setNewPageType] = useState('theory');
+  const [newPageDifficulty, setNewPageDifficulty] = useState('');
   
   const { theme, setTheme, resolvedTheme } = useTheme();
   const currentTheme = theme === 'system' ? resolvedTheme : theme;
   
-  const [collapsedBooks, setCollapsedBooks] = useState<Record<string, boolean>>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem('collapsed_books');
-        return saved ? JSON.parse(saved) : {};
-      } catch (e) {
-        return {};
-      }
-    }
-    return {};
-  });
+  const [expandedBookId, setExpandedBookId] = useState<string | null>(null);
+  const [expandedChapterId, setExpandedChapterId] = useState<string | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
+  // Auto-expand active path based on pathname navigation
   useEffect(() => {
-    localStorage.setItem('collapsed_books', JSON.stringify(collapsedBooks));
-  }, [collapsedBooks]);
+    const parts = pathname.split('/');
+    if (parts[1] === 'books' && parts[2]) {
+      setExpandedBookId(parts[2]);
+      if (parts[3] && parts[3] !== 'qa') {
+        setExpandedChapterId(parts[3]);
+      }
+    }
+  }, [pathname]);
 
   const toggleTheme = () => {
     setTheme(currentTheme === 'dark' ? 'light' : 'dark');
@@ -95,8 +96,26 @@ export default function Sidebar() {
   });
 
   const createPageMutation = useMutation({
-    mutationFn: async ({ title, chapterId }: { title: string, chapterId: string }) => 
-      axios.post(`${API_URL}/pages`, { title, chapterId, type: 'theory' }),
+    mutationFn: async ({ title, chapterId, type, difficulty }: { title: string, chapterId: string, type: string, difficulty: string }) => {
+      const titles = title.split('\n').map(t => t.trim()).filter(Boolean);
+      if (titles.length > 1) {
+        return axios.post(`${API_URL}/pages/bulk`, {
+          chapterId,
+          pages: titles.map(t => ({
+            title: t,
+            type,
+            difficulty: difficulty || null
+          }))
+        });
+      } else {
+        return axios.post(`${API_URL}/pages`, { 
+          title: titles[0] || title, 
+          chapterId, 
+          type, 
+          difficulty: difficulty || null 
+        });
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['booksTree'] });
       setIsPageModalOpen(false);
@@ -158,7 +177,7 @@ export default function Sidebar() {
   });
 
   return (
-    <aside className="w-64 flex flex-col bg-zinc-50 dark:bg-zinc-950 border-r border-zinc-200 dark:border-zinc-800 p-4 shrink-0 h-screen select-none">
+    <aside className="w-full h-full flex flex-col bg-zinc-50 dark:bg-zinc-950 border-r border-zinc-200 dark:border-zinc-800 p-4 select-none overflow-x-hidden">
       {/* Brand */}
       <div className="flex items-center gap-2 px-2 py-4 mb-4">
         <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white shrink-0 shadow-md shadow-indigo-500/20">
@@ -185,7 +204,7 @@ export default function Sidebar() {
       </nav>
 
       {/* Books Tree */}
-      <div className="flex-1 overflow-y-auto pr-1">
+      <div className="flex-1 overflow-y-auto overflow-x-auto whitespace-nowrap pr-1 scrollbar-thin">
         <div className="flex items-center justify-between px-2 mb-2 group">
           <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Books</span>
           <button onClick={() => setIsBookModalOpen(true)} className="opacity-0 group-hover:opacity-100 transition-opacity text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 cursor-pointer">
@@ -211,13 +230,13 @@ export default function Sidebar() {
         ) : (
           <ul className="space-y-3">
             {books.map((book: any) => {
-              const isExpanded = !collapsedBooks[book.id];
+              const isExpanded = expandedBookId === book.id;
               return (
                 <li key={book.id}>
                   <div className={`group flex items-center justify-between px-2 py-1.5 rounded-md text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900/50 ${pathname === `/books/${book.id}` ? 'bg-zinc-100 dark:bg-zinc-900 font-medium' : ''}`}>
                     <div className="flex items-center gap-1 flex-1 min-w-0">
                       <button 
-                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setCollapsedBooks(prev => ({ ...prev, [book.id]: !prev[book.id] })); }}
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setExpandedBookId(prev => prev === book.id ? null : book.id); }}
                         className="p-0.5 rounded hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-250 cursor-pointer"
                         title={isExpanded ? 'Collapse' : 'Expand'}
                       >
@@ -266,73 +285,85 @@ export default function Sidebar() {
                         </Link>
                       </li>
                       
-                      {book.chapters?.length > 0 && book.chapters.map((chapter: any) => (
-                        <li key={chapter.id}>
-                          <div className={`group flex items-center justify-between px-2 py-1 text-sm text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 ${pathname === `/books/${book.id}/${chapter.id}` ? 'font-medium text-zinc-900 dark:text-zinc-100' : ''}`}>
-                            <Link href={`/books/${book.id}/${chapter.id}`} className="truncate flex-1">
-                              {chapter.title}
-                            </Link>
-                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2 shrink-0">
-                              <button 
-                                onClick={() => { setActiveChapterId(chapter.id); setActiveBookId(book.id); setIsPageModalOpen(true); }}
-                                className="text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer"
-                                title="Add Page"
-                              >
-                                <Plus size={11} />
-                              </button>
-                              <button 
-                                onClick={() => setRenameTarget({ id: chapter.id, type: 'chapter', currentName: chapter.title })}
-                                className="text-zinc-400 hover:text-amber-600 dark:hover:text-amber-400 cursor-pointer"
-                                title="Rename Chapter"
-                              >
-                                <Edit3 size={11} />
-                              </button>
-                              <button 
-                                onClick={() => setDeleteTarget({ id: chapter.id, type: 'chapter', name: chapter.title })}
-                                className="text-zinc-400 hover:text-red-600 dark:hover:text-red-400 cursor-pointer"
-                                title="Delete Chapter"
-                              >
-                                <Trash size={11} />
-                              </button>
+                      {book.chapters?.length > 0 && book.chapters.map((chapter: any) => {
+                        const isChapterExpanded = expandedChapterId === chapter.id;
+                        return (
+                          <li key={chapter.id}>
+                            <div className={`group flex items-center justify-between px-2 py-1 text-sm text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 ${pathname === `/books/${book.id}/${chapter.id}` ? 'font-medium text-zinc-900 dark:text-zinc-100' : ''}`}>
+                              <div className="flex items-center gap-1 flex-1 min-w-0">
+                                <button 
+                                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setExpandedChapterId(prev => prev === chapter.id ? null : chapter.id); }}
+                                  className="p-0.5 rounded hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-250 cursor-pointer"
+                                  title={isChapterExpanded ? 'Collapse' : 'Expand'}
+                                >
+                                  <ChevronDown size={12} className={`transform transition-transform ${isChapterExpanded ? '' : '-rotate-90'}`} />
+                                </button>
+                                <Link href={`/books/${book.id}/${chapter.id}`} className="truncate flex-1">
+                                  {chapter.title}
+                                </Link>
+                              </div>
+                              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2 shrink-0">
+                                <button 
+                                  onClick={() => { setActiveChapterId(chapter.id); setActiveBookId(book.id); setIsPageModalOpen(true); }}
+                                  className="text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer"
+                                  title="Add Page"
+                                >
+                                  <Plus size={11} />
+                                </button>
+                                <button 
+                                  onClick={() => setRenameTarget({ id: chapter.id, type: 'chapter', currentName: chapter.title })}
+                                  className="text-zinc-400 hover:text-amber-600 dark:hover:text-amber-400 cursor-pointer"
+                                  title="Rename Chapter"
+                                >
+                                  <Edit3 size={11} />
+                                </button>
+                                <button 
+                                  onClick={() => setDeleteTarget({ id: chapter.id, type: 'chapter', name: chapter.title })}
+                                  className="text-zinc-400 hover:text-red-600 dark:hover:text-red-400 cursor-pointer"
+                                  title="Delete Chapter"
+                                >
+                                  <Trash size={11} />
+                                </button>
+                              </div>
                             </div>
-                          </div>
-                          
-                          {/* Nested pages */}
-                          {chapter.pages?.length > 0 && (
-                            <ul className="ml-3.5 space-y-1 mt-1 border-l border-zinc-200 dark:border-zinc-800 pl-2">
-                              {chapter.pages.map((page: any) => (
-                                <li key={page.id}>
-                                  <div className="group flex items-center justify-between w-full">
-                                    <Link 
-                                      href={`/books/${book.id}/${chapter.id}/${page.id}`}
-                                      className={`flex items-center gap-1.5 px-2 py-1 text-xs hover:text-zinc-900 dark:hover:text-zinc-100 truncate flex-1 rounded ${pathname === `/books/${book.id}/${chapter.id}/${page.id}` ? 'font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20' : 'text-zinc-500 dark:text-zinc-400'}`}
-                                    >
-                                      <FileText size={12} className="shrink-0" />
-                                      <span className="truncate">{page.title}</span>
-                                    </Link>
-                                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity pr-1 shrink-0">
-                                      <button 
-                                        onClick={() => setRenameTarget({ id: page.id, type: 'page', currentName: page.title })}
-                                        className="text-zinc-400 hover:text-amber-600 dark:hover:text-amber-400 cursor-pointer"
-                                        title="Rename Page"
+                            
+                            {/* Nested pages */}
+                            {isChapterExpanded && chapter.pages?.length > 0 && (
+                              <ul className="ml-3.5 space-y-1 mt-1 border-l border-zinc-200 dark:border-zinc-800 pl-2">
+                                {chapter.pages.map((page: any) => (
+                                  <li key={page.id}>
+                                    <div className="group flex items-center justify-between w-full">
+                                      <Link 
+                                        href={`/books/${book.id}/${chapter.id}/${page.id}`}
+                                        className={`flex items-center gap-1.5 px-2 py-1 text-xs hover:text-zinc-900 dark:hover:text-zinc-100 truncate flex-1 rounded ${pathname === `/books/${book.id}/${chapter.id}/${page.id}` ? 'font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20' : 'text-zinc-500 dark:text-zinc-400'}`}
                                       >
-                                        <Edit3 size={10} />
-                                      </button>
-                                      <button 
-                                        onClick={() => setDeleteTarget({ id: page.id, type: 'page', name: page.title })}
-                                        className="text-zinc-400 hover:text-red-600 dark:hover:text-red-400 cursor-pointer"
-                                        title="Delete Page"
-                                      >
-                                        <Trash size={10} />
-                                      </button>
+                                        <FileText size={12} className="shrink-0" />
+                                        <span className="truncate">{page.title}</span>
+                                      </Link>
+                                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity pr-1 shrink-0">
+                                        <button 
+                                          onClick={() => setRenameTarget({ id: page.id, type: 'page', currentName: page.title })}
+                                          className="text-zinc-400 hover:text-amber-600 dark:hover:text-amber-400 cursor-pointer"
+                                          title="Rename Page"
+                                        >
+                                          <Edit3 size={10} />
+                                        </button>
+                                        <button 
+                                          onClick={() => setDeleteTarget({ id: page.id, type: 'page', name: page.title })}
+                                          className="text-zinc-400 hover:text-red-600 dark:hover:text-red-400 cursor-pointer"
+                                          title="Delete Page"
+                                        >
+                                          <Trash size={10} />
+                                        </button>
+                                      </div>
                                     </div>
-                                  </div>
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </li>
-                      ))}
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </li>
+                        );
+                      })}
                     </ul>
                   )}
                 </li>
@@ -437,14 +468,46 @@ export default function Sidebar() {
           <DialogHeader>
             <DialogTitle>Create New Page</DialogTitle>
           </DialogHeader>
-          <div className="py-4">
-            <Input 
-              placeholder="e.g., Two Sum, Consistent Hashing" 
-              value={newPageTitle}
-              onChange={e => setNewPageTitle(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && newPageTitle && activeChapterId && createPageMutation.mutate({ title: newPageTitle, chapterId: activeChapterId })}
-              autoFocus
-            />
+          <div className="py-4 space-y-4">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Page Title(s)</label>
+              <Textarea 
+                placeholder="Enter page title (or one per line for bulk creation)" 
+                value={newPageTitle}
+                onChange={e => setNewPageTitle(e.target.value)}
+                rows={4}
+                autoFocus
+              />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Type</label>
+                <select
+                  value={newPageType}
+                  onChange={e => setNewPageType(e.target.value)}
+                  className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg px-2.5 py-2 focus:outline-none cursor-pointer text-sm"
+                >
+                  <option value="theory">Theory</option>
+                  <option value="dsa">DSA</option>
+                </select>
+              </div>
+              
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Difficulty</label>
+                <select
+                  value={newPageDifficulty}
+                  onChange={e => setNewPageDifficulty(e.target.value)}
+                  className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg px-2.5 py-2 focus:outline-none cursor-pointer text-sm"
+                >
+                  <option value="">Not set</option>
+                  <option value="Easy">Easy</option>
+                  <option value="Medium">Medium</option>
+                  <option value="Hard">Hard</option>
+                </select>
+              </div>
+            </div>
+
             {createPageMutation.isError && (
               <p className="text-xs font-semibold text-red-600 dark:text-red-400 mt-2 bg-red-50/50 dark:bg-red-950/15 py-1.5 px-3 rounded-lg border border-red-200/40 dark:border-red-900/40">
                 {(createPageMutation.error as any)?.response?.data?.error || 'Failed to create page.'}
@@ -454,8 +517,13 @@ export default function Sidebar() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsPageModalOpen(false)}>Cancel</Button>
             <Button 
-              onClick={() => activeChapterId && createPageMutation.mutate({ title: newPageTitle, chapterId: activeChapterId })} 
-              disabled={!newPageTitle || createPageMutation.isPending}
+              onClick={() => activeChapterId && createPageMutation.mutate({ 
+                title: newPageTitle, 
+                chapterId: activeChapterId,
+                type: newPageType,
+                difficulty: newPageDifficulty
+              })} 
+              disabled={!newPageTitle.trim() || createPageMutation.isPending}
               className="flex items-center gap-2"
             >
               {createPageMutation.isPending && <Loader2 size={16} className="animate-spin" />}
@@ -536,22 +604,6 @@ export default function Sidebar() {
           </DialogHeader>
           <div className="py-4 space-y-4">
             <div>
-              <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Security Passcode</h4>
-              <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-3">
-                Your application is unlocked using a secure passcode. To lock it again and require the passcode on next load, click "Lock Application" below.
-              </p>
-              <Button 
-                variant="outline" 
-                onClick={() => {
-                  localStorage.removeItem('nexus_passcode');
-                  window.location.reload();
-                }}
-                className="w-full text-red-600 hover:text-red-750 dark:text-red-400 border-red-200 hover:bg-red-50 dark:border-red-900/50 dark:hover:bg-red-950/20 cursor-pointer font-medium"
-              >
-                Lock Application
-              </Button>
-            </div>
-            <div className="border-t border-zinc-200 dark:border-zinc-800 pt-3.5">
               <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1">API Endpoint</h4>
               <p className="text-xs font-mono text-zinc-500 bg-zinc-100 dark:bg-zinc-900 p-2 rounded border border-zinc-200/50 dark:border-zinc-800/50">
                 {API_URL}

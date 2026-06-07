@@ -4,15 +4,18 @@ import { use, useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios, { API_URL } from '@/lib/apiClient';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { serializeToMarkdown } from '@/lib/markdownSerializer';
 import BlockEditor from '@/components/editor/BlockEditor';
+import PageQuestionsSection from '@/components/editor/PageQuestionsSection';
 import TagManager, { Tag } from '@/components/tags/TagManager';
 import { Button } from '@/components/ui/button';
 
 
-export default function PageView({ params }: { params: Promise<{ pageId: string }> }) {
+export default function PageView({ params }: { params: Promise<{ bookId: string; chapterId: string; pageId: string }> }) {
   const resolvedParams = use(params);
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   // Fetch page details
   const { data: page, isLoading: isLoadingPage, isError, error } = useQuery({
@@ -45,15 +48,50 @@ export default function PageView({ params }: { params: Promise<{ pageId: string 
     }
   }, [page]);
 
+  // Fetch sibling pages of chapter
+  const { data: chapter } = useQuery({
+    queryKey: ['chapter', page?.chapterId],
+    queryFn: async () => {
+      if (!page?.chapterId) return null;
+      const res = await axios.get(`${API_URL}/chapters/${page.chapterId}`);
+      return res.data;
+    },
+    enabled: !!page?.chapterId,
+  });
+
+  const siblingPages = chapter?.pages || [];
+  const currentIndex = siblingPages.findIndex((p: any) => p.id === resolvedParams.pageId);
+  const prevPage = currentIndex > 0 ? siblingPages[currentIndex - 1] : null;
+  const nextPage = currentIndex < siblingPages.length - 1 ? siblingPages[currentIndex + 1] : null;
+
+  // keyboard navigation (Alt + Left/Right)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.altKey) {
+        if (e.key === 'ArrowLeft' && prevPage) {
+          e.preventDefault();
+          router.push(`/books/${resolvedParams.bookId}/${resolvedParams.chapterId}/${prevPage.id}`);
+        } else if (e.key === 'ArrowRight' && nextPage) {
+          e.preventDefault();
+          router.push(`/books/${resolvedParams.bookId}/${resolvedParams.chapterId}/${nextPage.id}`);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [prevPage, nextPage, router, resolvedParams.bookId, resolvedParams.chapterId]);
+
   // Mutations
   const createTagMutation = useMutation({
     mutationFn: async ({ name, color }: { name: string; color?: string }) => {
       const res = await axios.post(`${API_URL}/tags`, { name, color });
+      await axios.post(`${API_URL}/tags/assign`, { pageId: resolvedParams.pageId, tagId: res.data.id });
       return res.data;
     },
-    onError: (err: any) => setMutationError(err.response?.data?.error || err.message || 'Failed to create tag.'),
+    onError: (err: any) => setMutationError(err.response?.data?.error || err.message || 'Failed to create and assign tag.'),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tags'] });
+      queryClient.invalidateQueries({ queryKey: ['page', resolvedParams.pageId] });
       setMutationError(null);
     }
   });
@@ -355,8 +393,53 @@ export default function PageView({ params }: { params: Promise<{ pageId: string 
         <BlockEditor
           key={resolvedParams.pageId}
           initialContent={initialBlock} 
-          onSave={(content) => saveBlocksMutation.mutate(content)} 
+          onSave={(content) => saveBlocksMutation.mutate(content)}
+          isSaving={saveBlocksMutation.isPending}
         />
+      </div>
+
+      <PageQuestionsSection 
+        bookId={resolvedParams.bookId} 
+        pageId={resolvedParams.pageId} 
+      />
+
+      {/* Sibling Page Navigation */}
+      <div className="flex items-center justify-between border-t border-zinc-200 dark:border-zinc-800 pt-6 mt-12 no-print">
+        <div>
+          {prevPage ? (
+            <Link 
+              href={`/books/${resolvedParams.bookId}/${resolvedParams.chapterId}/${prevPage.id}`}
+              className="flex flex-col items-start group hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+            >
+              <span className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Previous Page</span>
+              <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
+                ← {prevPage.title}
+              </span>
+            </Link>
+          ) : (
+            <div className="opacity-0 cursor-default" />
+          )}
+        </div>
+
+        <div className="text-xs text-zinc-500 font-medium">
+          Page {currentIndex + 1} of {siblingPages.length}
+        </div>
+
+        <div>
+          {nextPage ? (
+            <Link 
+              href={`/books/${resolvedParams.bookId}/${resolvedParams.chapterId}/${nextPage.id}`}
+              className="flex flex-col items-end group hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+            >
+              <span className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Next Page</span>
+              <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
+                {nextPage.title} →
+              </span>
+            </Link>
+          ) : (
+            <div className="opacity-0 cursor-default" />
+          )}
+        </div>
       </div>
     </div>
   );

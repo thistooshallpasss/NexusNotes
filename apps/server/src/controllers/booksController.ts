@@ -64,9 +64,9 @@ export const createBook = async (req: Request, res: Response) => {
     if (!validated.success) {
       return res.status(400).json({ error: 'Validation failed', details: validated.error.format() });
     }
-    const { name, desc, priority, cover } = validated.data;
+    const { name, desc, priority } = validated.data;
     const book = await prisma.book.create({
-      data: { name, desc, priority, cover }
+      data: { name, desc, priority }
     });
     res.status(201).json(book);
   } catch (error) {

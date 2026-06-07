@@ -89,7 +89,17 @@ export const searchAll = async (req: Request, res: Response) => {
       take: 10
     });
 
-    res.json({ pages, questions, notes });
+    const chapters = await prisma.chapter.findMany({
+      where: {
+        title: { contains: query, mode: 'insensitive' }
+      },
+      include: {
+        book: true
+      },
+      take: 10
+    });
+
+    res.json({ pages, questions, notes, chapters });
   } catch (error) {
     res.status(500).json({ error: 'Failed to perform search' });
   }

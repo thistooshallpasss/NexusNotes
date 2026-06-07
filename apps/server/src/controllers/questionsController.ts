@@ -14,15 +14,27 @@ export const getQuestionsByBookId = async (req: Request, res: Response) => {
   }
 };
 
+export const getQuestionsByPageId = async (req: Request, res: Response) => {
+  try {
+    const pageId = req.params.pageId as string;
+    const questions = await prisma.question.findMany({
+      where: { pageId }
+    });
+    res.json(questions);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch page questions' });
+  }
+};
+
 export const createQuestion = async (req: Request, res: Response) => {
   try {
     const validated = createQuestionSchema.safeParse(req.body);
     if (!validated.success) {
       return res.status(400).json({ error: 'Validation failed', details: validated.error.format() });
     }
-    const { bookId, question, answer, difficulty, companies, tags, isFavorite } = validated.data;
+    const { bookId, pageId, question, answer, difficulty, companies, tags, isFavorite } = validated.data;
     const newQuestion = await prisma.question.create({
-      data: { bookId, question, answer, difficulty, companies, tags, isFavorite }
+      data: { bookId, pageId, question, answer, difficulty, companies, tags, isFavorite }
     });
     res.status(201).json(newQuestion);
   } catch (error) {
@@ -38,10 +50,10 @@ export const updateQuestion = async (req: Request, res: Response) => {
     if (!validated.success) {
       return res.status(400).json({ error: 'Validation failed', details: validated.error.format() });
     }
-    const { question, answer, difficulty, companies, tags, isFavorite } = validated.data;
+    const { pageId, question, answer, difficulty, companies, tags, isFavorite } = validated.data;
     const updatedQuestion = await prisma.question.update({
       where: { id },
-      data: { question, answer, difficulty, companies, tags, isFavorite }
+      data: { pageId, question, answer, difficulty, companies, tags, isFavorite }
     });
     res.json(updatedQuestion);
   } catch (error) {

@@ -6,6 +6,7 @@ import ReactQueryProvider from '@/components/ReactQueryProvider';
 import AuthGate from '@/components/AuthGate';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import SearchDialog from '@/components/SearchDialog';
+import JumpDialog from '@/components/JumpDialog';
 import ResponsiveLayout from '@/components/ResponsiveLayout';
 import { ThemeProvider } from 'next-themes';
 
@@ -33,6 +34,7 @@ export default function RootLayout({
                   {children}
                 </ResponsiveLayout>
                 <SearchDialog />
+                <JumpDialog />
               </ErrorBoundary>
             </AuthGate>
           </ReactQueryProvider>

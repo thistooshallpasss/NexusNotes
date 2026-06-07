@@ -32,7 +32,12 @@ export const getChapterById = async (req: Request, res: Response) => {
             isPinned: true,
             isImportant: true,
             createdAt: true,
-            updatedAt: true
+            updatedAt: true,
+            pageTags: {
+              include: {
+                tag: true
+              }
+            }
           },
           orderBy: {
             createdAt: 'asc'
@@ -55,13 +60,16 @@ export const createChapter = async (req: Request, res: Response) => {
     }
     const { title, bookId, priority, isFavorite } = validated.data;
     
-    // Compute order dynamically based on the current count of chapters in this book
-    const count = await prisma.chapter.count({
-      where: { bookId }
+    // Compute order dynamically by fetching the maximum current order and adding 1
+    const maxOrderChapter = await prisma.chapter.findFirst({
+      where: { bookId },
+      orderBy: { order: 'desc' },
+      select: { order: true }
     });
+    const nextOrder = maxOrderChapter ? maxOrderChapter.order + 1 : 0;
 
     const chapter = await prisma.chapter.create({
-      data: { title, bookId, order: count, priority, isFavorite }
+      data: { title, bookId, order: nextOrder, priority, isFavorite }
     });
     res.status(201).json(chapter);
   } catch (error) {

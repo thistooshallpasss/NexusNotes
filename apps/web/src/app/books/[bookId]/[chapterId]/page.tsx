@@ -130,9 +130,26 @@ export default function ChapterLandingPage({ params }: { params: Promise<{ bookI
                   <FileText size={18} className="text-zinc-400 group-hover:text-indigo-500" />
                   <div>
                     <h3 className="font-medium text-lg group-hover:text-indigo-700 dark:group-hover:text-indigo-300">{page.title}</h3>
-                    <div className="flex gap-2 mt-1">
-                      {page.isFavorite && <span className="text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100 px-2 py-0.5 rounded">Favorite</span>}
-                      {page.type && <span className="text-xs font-medium bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded uppercase tracking-wider">{page.type}</span>}
+                    <div className="flex flex-wrap gap-2 mt-1.5 items-center">
+                      {page.isFavorite && <span className="text-xs font-medium bg-yellow-50 text-yellow-600 dark:bg-yellow-950/20 dark:text-yellow-400 border border-yellow-200/30 dark:border-yellow-900/30 px-2 py-0.5 rounded">Favorite</span>}
+                      {page.type && <span className="text-xs font-semibold bg-zinc-150 text-zinc-650 dark:bg-zinc-800 dark:text-zinc-350 px-2 py-0.5 rounded uppercase tracking-wider">{page.type}</span>}
+                      {page.difficulty && (
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded ${
+                          page.difficulty.toLowerCase() === 'easy' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400 border border-emerald-250/30' :
+                          page.difficulty.toLowerCase() === 'medium' ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400 border border-amber-250/30' :
+                          'bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-400 border border-red-250/30'
+                        }`}>
+                          {page.difficulty}
+                        </span>
+                      )}
+                      {page.pageTags && page.pageTags.map((pt: any) => (
+                        <span 
+                          key={pt.tag.id} 
+                          className="text-xs font-semibold px-2 py-0.5 rounded border border-indigo-200/30 dark:border-indigo-900/30 bg-indigo-50/50 dark:bg-indigo-950/20 text-indigo-700 dark:text-indigo-400"
+                        >
+                          {pt.tag.name}
+                        </span>
+                      ))}
                     </div>
                   </div>
                 </div>

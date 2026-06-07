@@ -19,9 +19,11 @@ import { Image as ImageIcon, Loader2 } from 'lucide-react';
 interface BlockEditorProps {
   initialContent?: any;
   onSave?: (content: any) => void;
+  isSaving?: boolean;
 }
 
-export default function BlockEditor({ initialContent, onSave }: BlockEditorProps) {
+export default function BlockEditor({ initialContent, onSave, isSaving }: BlockEditorProps) {
+  const [isDirty, setIsDirty] = useState(false);
   
   // States for Image Zoom
   const [zoomImage, setZoomImage] = useState<{ src: string; alt: string } | null>(null);
@@ -44,7 +46,10 @@ export default function BlockEditor({ initialContent, onSave }: BlockEditorProps
 
   const debouncedSave = useRef(
     debounce((content: any) => {
-      if (onSaveRef.current) onSaveRef.current(content);
+      if (onSaveRef.current) {
+        onSaveRef.current(content);
+        setIsDirty(false);
+      }
     }, 2000)
   ).current;
 
@@ -53,6 +58,16 @@ export default function BlockEditor({ initialContent, onSave }: BlockEditorProps
       debouncedSave.cancel();
     };
   }, [debouncedSave]);
+
+  const handleManualSave = () => {
+    if (!editor) return;
+    debouncedSave.cancel();
+    const json = editor.getJSON();
+    if (onSaveRef.current) {
+      onSaveRef.current(json);
+      setIsDirty(false);
+    }
+  };
 
   const editor = useEditor({
     extensions: [
@@ -67,6 +82,7 @@ export default function BlockEditor({ initialContent, onSave }: BlockEditorProps
     ],
     content: initialContent || '<p>Start typing your notes...</p>',
     onUpdate: ({ editor }) => {
+      setIsDirty(true);
       const json = editor.getJSON();
       debouncedSave(json);
     },
@@ -287,7 +303,33 @@ export default function BlockEditor({ initialContent, onSave }: BlockEditorProps
           </div>
         )}
         <div className="w-px h-6 bg-zinc-300 dark:bg-zinc-700 my-auto mx-1" />
-        <span className="px-3 py-1.5 text-xs text-zinc-500 my-auto">Paste/Drop/Upload Images</span>
+        <span className="px-3 py-1.5 text-xs text-zinc-500 my-auto mr-auto">Paste/Drop/Upload Images</span>
+
+        {/* Save & Status Section */}
+        <div className="flex items-center gap-3 ml-auto pr-2">
+          {isSaving ? (
+            <span className="text-xs font-medium text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
+              <Loader2 size={12} className="animate-spin" /> Saving...
+            </span>
+          ) : isDirty ? (
+            <span className="text-xs font-medium text-amber-600 dark:text-amber-400">
+              Unsaved changes
+            </span>
+          ) : (
+            <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
+              Saved
+            </span>
+          )}
+          
+          <Button 
+            size="sm" 
+            onClick={handleManualSave}
+            disabled={isSaving || !isDirty}
+            className="h-7 text-xs font-semibold px-3 cursor-pointer"
+          >
+            Save
+          </Button>
+        </div>
       </div>
       
       <div className="px-4">

@@ -46,10 +46,25 @@ app.get('/api/health', (req: Request, res: Response) => {
 
 import { generateSessionToken } from './lib/token';
 
-// Auth validation endpoint (passes only if authorization header is correct)
+// Auth validation endpoint (passes only if authorization header matches the raw API_KEY passcode)
 app.post('/api/auth/verify', (req: Request, res: Response) => {
-  const token = generateSessionToken();
-  res.json({ success: true, message: 'Passcode is valid', token });
+  const authHeader = req.headers['authorization'] || req.headers['x-api-key'];
+  let token = '';
+
+  if (typeof authHeader === 'string') {
+    if (authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7);
+    } else {
+      token = authHeader;
+    }
+  }
+
+  if (token === process.env.API_KEY) {
+    const sessionToken = generateSessionToken();
+    return res.json({ success: true, message: 'Passcode is valid', token: sessionToken });
+  }
+
+  return res.status(401).json({ error: 'Unauthorized: Invalid passcode.' });
 });
 
 import booksRouter from './routes/books';
