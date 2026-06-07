@@ -48,7 +48,7 @@ export default function BookLandingPage({ params }: { params: Promise<{ bookId: 
   if (!book) return <div className="p-8 text-zinc-500">Book not found.</div>;
 
   return (
-    <div className="max-w-4xl mx-auto py-8">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-1.5 text-xs text-zinc-500 font-medium mb-6">
         <Link href="/" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Home</Link>

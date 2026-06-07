@@ -151,7 +151,7 @@ export default function QAPage({ params }: { params: Promise<{ bookId: string }>
   if (isLoading) return <div className="p-8 text-zinc-500 animate-pulse">Loading Q&A...</div>;
 
   return (
-    <div className="max-w-4xl mx-auto py-8">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
         <div className="flex items-center gap-3">
@@ -438,7 +438,7 @@ function Flashcard({ question, onEdit, onDelete, onToggleFavorite, forceOpen }: 
     <div className="border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-950 shadow-sm transition-all hover:border-indigo-300 dark:hover:border-indigo-700/50">
       {/* Front of card (Question) */}
       <div 
-        className="p-6 cursor-pointer flex justify-between items-start gap-4"
+        className="p-6 cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-4"
         onClick={() => setIsOpen(!isOpen)}
       >
         <div className="flex-1 min-w-0">
@@ -456,7 +456,7 @@ function Flashcard({ question, onEdit, onDelete, onToggleFavorite, forceOpen }: 
               const trimmed = company.trim();
               if (!trimmed) return null;
               return (
-                <span key={trimmed} className="text-xs font-medium bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 px-2 py-0.5 rounded">
+                <span key={trimmed} className="text-xs font-medium bg-zinc-100 text-zinc-650 dark:bg-zinc-800 dark:text-zinc-400 px-2 py-0.5 rounded">
                   {trimmed}
                 </span>
               );
@@ -475,7 +475,7 @@ function Flashcard({ question, onEdit, onDelete, onToggleFavorite, forceOpen }: 
         </div>
         
         {/* Actions */}
-        <div className="flex items-center gap-2 shrink-0" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center gap-2 shrink-0 ml-auto sm:ml-0" onClick={e => e.stopPropagation()}>
           <button 
             onClick={onToggleFavorite} 
             className="p-1.5 rounded-lg text-zinc-400 hover:text-yellow-500 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors cursor-pointer"

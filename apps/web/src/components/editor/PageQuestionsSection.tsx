@@ -388,9 +388,8 @@ function FlashcardItem({ question, onEdit, onDelete, onToggleFavorite, forceOpen
 
   return (
     <div className="border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-950 shadow-sm transition-all hover:border-indigo-300 dark:hover:border-indigo-700/50">
-      {/* Question Front */}
       <div 
-        className="p-5 cursor-pointer flex justify-between items-start gap-4"
+        className="p-5 cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-4"
         onClick={() => setIsOpen(!isOpen)}
       >
         <div className="flex-1 min-w-0">
@@ -408,7 +407,7 @@ function FlashcardItem({ question, onEdit, onDelete, onToggleFavorite, forceOpen
               const trimmed = company.trim();
               if (!trimmed) return null;
               return (
-                <span key={trimmed} className="text-[10px] font-medium bg-zinc-100 text-zinc-600 dark:bg-zinc-850 dark:text-zinc-400 px-2 py-0.5 rounded">
+                <span key={trimmed} className="text-[10px] font-medium bg-zinc-100 text-zinc-650 dark:bg-zinc-850 dark:text-zinc-400 px-2 py-0.5 rounded">
                   {trimmed}
                 </span>
               );
@@ -427,7 +426,7 @@ function FlashcardItem({ question, onEdit, onDelete, onToggleFavorite, forceOpen
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-1.5 shrink-0" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center gap-1.5 shrink-0 ml-auto sm:ml-0" onClick={e => e.stopPropagation()}>
           <button 
             onClick={onToggleFavorite} 
             className="p-1 rounded-lg text-zinc-400 hover:text-yellow-500 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors cursor-pointer"

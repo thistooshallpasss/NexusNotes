@@ -207,7 +207,7 @@ export default function PageView({ params }: { params: Promise<{ bookId: string;
   const initialBlock = page.blocks && page.blocks.length > 0 ? page.blocks[0].content : undefined;
 
   return (
-    <div className="max-w-4xl mx-auto py-8">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Breadcrumb Navigation & Exports */}
       {page.chapter && page.chapter.book && (
         <div className="flex items-center justify-between gap-4 mb-4 no-print">
