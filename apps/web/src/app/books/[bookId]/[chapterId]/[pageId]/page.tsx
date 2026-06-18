@@ -10,6 +10,7 @@ import BlockEditor from '@/components/editor/BlockEditor';
 import PageQuestionsSection from '@/components/editor/PageQuestionsSection';
 import TagManager, { Tag } from '@/components/tags/TagManager';
 import { Button } from '@/components/ui/button';
+import ReadingToolbar from '@/components/editor/ReadingToolbar';
 
 
 export default function PageView({ params }: { params: Promise<{ bookId: string; chapterId: string; pageId: string }> }) {
@@ -39,6 +40,52 @@ export default function PageView({ params }: { params: Promise<{ bookId: string;
   const [titleVal, setTitleVal] = useState('');
   const [companiesVal, setCompaniesVal] = useState('');
   const [mutationError, setMutationError] = useState<string | null>(null);
+
+  // Reading Mode State
+  const [readingMode, setReadingMode] = useState(false);
+  const [isMobileDevice, setIsMobileDevice] = useState(false);
+  const [fontSize, setFontSize] = useState<number>(16);
+
+  // Initialize font size from localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedFontSize = localStorage.getItem('nexus-font-size');
+      if (savedFontSize) {
+        const parsed = parseInt(savedFontSize, 10);
+        if (!isNaN(parsed) && parsed >= 12 && parsed <= 28) {
+          setFontSize(parsed);
+        }
+      }
+    }
+  }, []);
+
+  // Update localStorage when fontSize changes
+  const handleFontSizeChange = (newSize: number) => {
+    setFontSize(newSize);
+    localStorage.setItem('nexus-font-size', newSize.toString());
+  };
+
+  // Check for viewport width on mount to auto-trigger readingMode
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const isMobile = window.innerWidth < 768;
+      setIsMobileDevice(isMobile);
+      if (isMobile) {
+        setReadingMode(true);
+      }
+    }
+  }, []);
+
+  // Collapse/expand sidebar programmatically when entering/exiting readingMode
+  useEffect(() => {
+    if (!isMobileDevice) {
+      window.dispatchEvent(
+        new CustomEvent('sidebar-set-collapsed', {
+          detail: { collapsed: readingMode },
+        })
+      );
+    }
+  }, [readingMode, isMobileDevice]);
 
   // Sync state with query result
   useEffect(() => {
@@ -207,10 +254,19 @@ export default function PageView({ params }: { params: Promise<{ bookId: string;
   const initialBlock = page.blocks && page.blocks.length > 0 ? page.blocks[0].content : undefined;
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div 
+      className={`mx-auto px-4 sm:px-6 lg:px-8 py-8 transition-all duration-300 ${
+        readingMode 
+          ? 'max-w-[390px] reading-mode-active' 
+          : 'max-w-4xl'
+      }`}
+      style={{ '--reading-font-size': `${fontSize}px` } as React.CSSProperties}
+    >
       {/* Breadcrumb Navigation & Exports */}
       {page.chapter && page.chapter.book && (
-        <div className="flex items-center justify-between gap-4 mb-4 no-print">
+        <div className={`flex items-center justify-between gap-4 mb-4 no-print transition-all duration-300 ${
+          readingMode ? 'opacity-0 pointer-events-none' : 'opacity-100'
+        }`}>
           <nav className="flex items-center gap-1.5 text-xs text-zinc-500 font-medium">
             <Link href={`/books/${page.chapter.book.id}`} className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
               {page.chapter.book.name}
@@ -224,6 +280,16 @@ export default function PageView({ params }: { params: Promise<{ bookId: string;
           </nav>
           
           <div className="flex items-center gap-2">
+            {!isMobileDevice && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setReadingMode(true)}
+                className="h-7 text-xs px-2.5 cursor-pointer shadow-sm flex items-center gap-1.5 border-dashed"
+              >
+                📱 Reading View
+              </Button>
+            )}
             <Button
               size="sm"
               variant="outline"
@@ -258,7 +324,12 @@ export default function PageView({ params }: { params: Promise<{ bookId: string;
 
       {/* Inline Editable Title */}
       <input
-        className="text-4xl font-bold tracking-tight mb-2 bg-transparent border-none outline-none focus:ring-0 w-full hover:bg-zinc-100/50 focus:bg-zinc-100/50 dark:hover:bg-zinc-800/30 dark:focus:bg-zinc-800/30 px-2 py-1 rounded transition-colors text-zinc-900 dark:text-zinc-50"
+        disabled={readingMode}
+        className={`text-4xl font-bold tracking-tight mb-2 bg-transparent border-none outline-none focus:ring-0 w-full px-2 py-1 rounded transition-all duration-300 ${
+          readingMode 
+            ? 'cursor-default select-none' 
+            : 'hover:bg-zinc-100/50 focus:bg-zinc-100/50 dark:hover:bg-zinc-800/30 dark:focus:bg-zinc-800/30 text-zinc-900 dark:text-zinc-50'
+        }`}
         value={titleVal}
         onChange={(e) => setTitleVal(e.target.value)}
         onBlur={() => {
@@ -275,7 +346,9 @@ export default function PageView({ params }: { params: Promise<{ bookId: string;
       />
 
       {/* Metadata Panel */}
-      <div className="flex flex-wrap items-center gap-4 py-3 border-b border-zinc-200 dark:border-zinc-800 text-sm text-zinc-600 dark:text-zinc-400">
+      <div className={`flex flex-wrap items-center gap-4 py-3 border-b border-zinc-200 dark:border-zinc-800 text-sm text-zinc-600 dark:text-zinc-400 transition-all duration-300 ${
+        readingMode ? 'opacity-0 pointer-events-none' : 'opacity-100'
+      }`}>
         {/* Type Selector */}
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Type</span>
@@ -380,14 +453,18 @@ export default function PageView({ params }: { params: Promise<{ bookId: string;
         </button>
       </div>
       
-      <TagManager 
-        availableTags={allTags}
-        selectedTags={selectedTags}
-        pageId={resolvedParams.pageId}
-        onCreateTag={(name, color) => createTagMutation.mutate({ name, color })}
-        onAssignTag={(tag) => assignTagMutation.mutate(tag)}
-        onRemoveTag={(tagId) => removeTagMutation.mutate(tagId)}
-      />
+      <div className={`transition-all duration-300 ${
+        readingMode ? 'opacity-0 pointer-events-none' : 'opacity-100'
+      }`}>
+        <TagManager 
+          availableTags={allTags}
+          selectedTags={selectedTags}
+          pageId={resolvedParams.pageId}
+          onCreateTag={(name, color) => createTagMutation.mutate({ name, color })}
+          onAssignTag={(tag) => assignTagMutation.mutate(tag)}
+          onRemoveTag={(tagId) => removeTagMutation.mutate(tagId)}
+        />
+      </div>
 
       <div className="mt-8">
         <BlockEditor
@@ -395,16 +472,23 @@ export default function PageView({ params }: { params: Promise<{ bookId: string;
           initialContent={initialBlock} 
           onSave={(content) => saveBlocksMutation.mutate(content)}
           isSaving={saveBlocksMutation.isPending}
+          readingMode={readingMode}
         />
       </div>
 
-      <PageQuestionsSection 
-        bookId={resolvedParams.bookId} 
-        pageId={resolvedParams.pageId} 
-      />
+      <div className={`transition-all duration-300 ${
+        readingMode ? 'opacity-0 pointer-events-none' : 'opacity-100'
+      }`}>
+        <PageQuestionsSection 
+          bookId={resolvedParams.bookId} 
+          pageId={resolvedParams.pageId} 
+        />
+      </div>
 
       {/* Sibling Page Navigation */}
-      <div className="flex items-center justify-between border-t border-zinc-200 dark:border-zinc-800 pt-6 mt-12 no-print">
+      <div className={`flex items-center justify-between border-t border-zinc-200 dark:border-zinc-800 pt-6 mt-12 no-print transition-all duration-300 ${
+        readingMode ? 'opacity-0 pointer-events-none' : 'opacity-100'
+      }`}>
         <div>
           {prevPage ? (
             <Link 
@@ -441,6 +525,15 @@ export default function PageView({ params }: { params: Promise<{ bookId: string;
           )}
         </div>
       </div>
+
+      {readingMode && (
+        <ReadingToolbar 
+          fontSize={fontSize}
+          onFontSizeChange={handleFontSizeChange}
+          onExit={() => setReadingMode(false)}
+          showExit={!isMobileDevice}
+        />
+      )}
     </div>
   );
 }

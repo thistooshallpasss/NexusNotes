@@ -20,9 +20,10 @@ interface BlockEditorProps {
   initialContent?: any;
   onSave?: (content: any) => void;
   isSaving?: boolean;
+  readingMode?: boolean;
 }
 
-export default function BlockEditor({ initialContent, onSave, isSaving }: BlockEditorProps) {
+export default function BlockEditor({ initialContent, onSave, isSaving, readingMode = false }: BlockEditorProps) {
   const [isDirty, setIsDirty] = useState(false);
   
   // States for Image Zoom
@@ -81,6 +82,7 @@ export default function BlockEditor({ initialContent, onSave, isSaving }: BlockE
       }),
     ],
     content: initialContent || '<p>Start typing your notes...</p>',
+    editable: !readingMode,
     onUpdate: ({ editor }) => {
       setIsDirty(true);
       const json = editor.getJSON();
@@ -126,6 +128,13 @@ export default function BlockEditor({ initialContent, onSave, isSaving }: BlockE
       }
     },
   });
+
+  // Dynamically toggle editable state when readingMode changes
+  useEffect(() => {
+    if (editor) {
+      editor.setEditable(!readingMode);
+    }
+  }, [editor, readingMode]);
 
   const uploadImage = async (file: File, view: any, event: any) => {
     if (event && typeof event.preventDefault === 'function') {
@@ -192,145 +201,147 @@ export default function BlockEditor({ initialContent, onSave, isSaving }: BlockE
   return (
     <div className="w-full relative mt-4">
       {/* Floating or sticky toolbar */}
-      <div className="sticky top-0 z-10 bg-white/85 dark:bg-zinc-900/85 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800 py-2 mb-4 flex flex-wrap gap-2 rounded-t-lg px-2">
-        <button
-          onClick={() => editor.chain().focus().toggleBold().run()}
-          className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer ${editor.isActive('bold') ? 'bg-zinc-200 dark:bg-zinc-800' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800/50'}`}
-        >
-          Bold
-        </button>
-        <button
-          onClick={() => editor.chain().focus().toggleItalic().run()}
-          className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer ${editor.isActive('italic') ? 'bg-zinc-200 dark:bg-zinc-800' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800/50'}`}
-        >
-          Italic
-        </button>
-        <div className="w-px h-6 bg-zinc-300 dark:bg-zinc-700 my-auto mx-1" />
-        <button
-          onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-          className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer ${editor.isActive('heading', { level: 1 }) ? 'bg-zinc-200 dark:bg-zinc-800' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800/50'}`}
-        >
-          H1
-        </button>
-        <button
-          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-          className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer ${editor.isActive('heading', { level: 2 }) ? 'bg-zinc-200 dark:bg-zinc-800' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800/50'}`}
-        >
-          H2
-        </button>
-        <button
-          onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-          className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer ${editor.isActive('heading', { level: 3 }) ? 'bg-zinc-200 dark:bg-zinc-800' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800/50'}`}
-        >
-          H3
-        </button>
-        <div className="w-px h-6 bg-zinc-300 dark:bg-zinc-700 my-auto mx-1" />
-        <button
-          onClick={() => editor.chain().focus().toggleBulletList().run()}
-          className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer ${editor.isActive('bulletList') ? 'bg-zinc-200 dark:bg-zinc-800' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800/50'}`}
-        >
-          Bullet List
-        </button>
-        <button
-          onClick={() => editor.chain().focus().toggleOrderedList().run()}
-          className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer ${editor.isActive('orderedList') ? 'bg-zinc-200 dark:bg-zinc-800' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800/50'}`}
-        >
-          Numbered List
-        </button>
-        <button
-          onClick={() => editor.chain().focus().toggleTaskList().run()}
-          className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer ${editor.isActive('taskList') ? 'bg-zinc-200 dark:bg-zinc-800' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800/50'}`}
-        >
-          Checklist
-        </button>
-        <div className="w-px h-6 bg-zinc-300 dark:bg-zinc-700 my-auto mx-1" />
-        <button
-          onClick={() => editor.chain().focus().insertContent({ type: 'monacoCodeBlock', attrs: { language: 'javascript', code: '' } }).run()}
-          className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800/50 text-blue-600 dark:text-blue-400`}
-        >
-          {`{ }`} Code Block
-        </button>
-        <button
-          onClick={() => editor.chain().focus().insertContent({ 
-            type: 'dsaBlock', 
-            attrs: { 
-              approachType: 'Brute Force', 
-              timeComplexity: 'O(N)', 
-              spaceComplexity: 'O(1)', 
-              description: '',
-              code: '// Write code here',
-              language: 'javascript'
-            } 
-          }).run()}
-          className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800/50 text-indigo-600 dark:text-indigo-400`}
-        >
-          DSA Approach
-        </button>
-        <div className="w-px h-6 bg-zinc-300 dark:bg-zinc-700 my-auto mx-1" />
-        <button
-          onClick={() => imageInputRef.current?.click()}
-          className="px-3 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800/50 text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5"
-          title="Upload image from your computer"
-        >
-          <ImageIcon size={16} /> Image
-        </button>
-        <input 
-          type="file" 
-          ref={imageInputRef} 
-          className="hidden" 
-          accept="image/*" 
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) {
-              uploadImage(file, editor.view, {
-                preventDefault: () => {},
-                clientX: null,
-                clientY: null
-              });
-            }
-            e.target.value = '';
-          }}
-        />
-        {isUploading && (
-          <div className="flex items-center gap-1.5 text-xs text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-950/20 px-2.5 py-1 rounded-md animate-pulse my-auto">
-            <Loader2 className="h-3 w-3 animate-spin" />
-            <span>Uploading...</span>
-          </div>
-        )}
-        {uploadError && (
-          <div className="flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400 bg-red-50/50 dark:bg-red-950/20 px-2.5 py-1 rounded-md my-auto border border-red-200/40 dark:border-red-900/40">
-            <span>{uploadError}</span>
-          </div>
-        )}
-        <div className="w-px h-6 bg-zinc-300 dark:bg-zinc-700 my-auto mx-1" />
-        <span className="px-3 py-1.5 text-xs text-zinc-500 my-auto mr-auto">Paste/Drop/Upload Images</span>
-
-        {/* Save & Status Section */}
-        <div className="flex items-center gap-3 ml-auto pr-2">
-          {isSaving ? (
-            <span className="text-xs font-medium text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
-              <Loader2 size={12} className="animate-spin" /> Saving...
-            </span>
-          ) : isDirty ? (
-            <span className="text-xs font-medium text-amber-600 dark:text-amber-400">
-              Unsaved changes
-            </span>
-          ) : (
-            <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
-              Saved
-            </span>
-          )}
-          
-          <Button 
-            size="sm" 
-            onClick={handleManualSave}
-            disabled={isSaving || !isDirty}
-            className="h-7 text-xs font-semibold px-3 cursor-pointer"
+      {!readingMode && (
+        <div className="sticky top-0 z-10 bg-white/85 dark:bg-zinc-900/85 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800 py-2 mb-4 flex flex-wrap gap-2 rounded-t-lg px-2">
+          <button
+            onClick={() => editor.chain().focus().toggleBold().run()}
+            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer ${editor.isActive('bold') ? 'bg-zinc-200 dark:bg-zinc-800' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800/50'}`}
           >
-            Save
-          </Button>
+            Bold
+          </button>
+          <button
+            onClick={() => editor.chain().focus().toggleItalic().run()}
+            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer ${editor.isActive('italic') ? 'bg-zinc-200 dark:bg-zinc-800' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800/50'}`}
+          >
+            Italic
+          </button>
+          <div className="w-px h-6 bg-zinc-300 dark:bg-zinc-700 my-auto mx-1" />
+          <button
+            onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer ${editor.isActive('heading', { level: 1 }) ? 'bg-zinc-200 dark:bg-zinc-800' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800/50'}`}
+          >
+            H1
+          </button>
+          <button
+            onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer ${editor.isActive('heading', { level: 2 }) ? 'bg-zinc-200 dark:bg-zinc-800' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800/50'}`}
+          >
+            H2
+          </button>
+          <button
+            onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer ${editor.isActive('heading', { level: 3 }) ? 'bg-zinc-200 dark:bg-zinc-800' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800/50'}`}
+          >
+            H3
+          </button>
+          <div className="w-px h-6 bg-zinc-300 dark:bg-zinc-700 my-auto mx-1" />
+          <button
+            onClick={() => editor.chain().focus().toggleBulletList().run()}
+            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer ${editor.isActive('bulletList') ? 'bg-zinc-200 dark:bg-zinc-800' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800/50'}`}
+          >
+            Bullet List
+          </button>
+          <button
+            onClick={() => editor.chain().focus().toggleOrderedList().run()}
+            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer ${editor.isActive('orderedList') ? 'bg-zinc-200 dark:bg-zinc-800' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800/50'}`}
+          >
+            Numbered List
+          </button>
+          <button
+            onClick={() => editor.chain().focus().toggleTaskList().run()}
+            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer ${editor.isActive('taskList') ? 'bg-zinc-200 dark:bg-zinc-800' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800/50'}`}
+          >
+            Checklist
+          </button>
+          <div className="w-px h-6 bg-zinc-300 dark:bg-zinc-700 my-auto mx-1" />
+          <button
+            onClick={() => editor.chain().focus().insertContent({ type: 'monacoCodeBlock', attrs: { language: 'javascript', code: '' } }).run()}
+            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800/50 text-blue-600 dark:text-blue-400`}
+          >
+            {`{ }`} Code Block
+          </button>
+          <button
+            onClick={() => editor.chain().focus().insertContent({ 
+              type: 'dsaBlock', 
+              attrs: { 
+                approachType: 'Brute Force', 
+                timeComplexity: 'O(N)', 
+                spaceComplexity: 'O(1)', 
+                description: '',
+                code: '// Write code here',
+                language: 'javascript'
+              } 
+            }).run()}
+            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800/50 text-indigo-600 dark:text-indigo-400`}
+          >
+            DSA Approach
+          </button>
+          <div className="w-px h-6 bg-zinc-300 dark:bg-zinc-700 my-auto mx-1" />
+          <button
+            onClick={() => imageInputRef.current?.click()}
+            className="px-3 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800/50 text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5"
+            title="Upload image from your computer"
+          >
+            <ImageIcon size={16} /> Image
+          </button>
+          <input 
+            type="file" 
+            ref={imageInputRef} 
+            className="hidden" 
+            accept="image/*" 
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                uploadImage(file, editor.view, {
+                  preventDefault: () => {},
+                  clientX: null,
+                  clientY: null
+                });
+              }
+              e.target.value = '';
+            }}
+          />
+          {isUploading && (
+            <div className="flex items-center gap-1.5 text-xs text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-950/20 px-2.5 py-1 rounded-md animate-pulse my-auto">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              <span>Uploading...</span>
+            </div>
+          )}
+          {uploadError && (
+            <div className="flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400 bg-red-50/50 dark:bg-red-950/20 px-2.5 py-1 rounded-md my-auto border border-red-200/40 dark:border-red-900/40">
+              <span>{uploadError}</span>
+            </div>
+          )}
+          <div className="w-px h-6 bg-zinc-300 dark:bg-zinc-700 my-auto mx-1" />
+          <span className="px-3 py-1.5 text-xs text-zinc-500 my-auto mr-auto">Paste/Drop/Upload Images</span>
+  
+          {/* Save & Status Section */}
+          <div className="flex items-center gap-3 ml-auto pr-2">
+            {isSaving ? (
+              <span className="text-xs font-medium text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
+                <Loader2 size={12} className="animate-spin" /> Saving...
+              </span>
+            ) : isDirty ? (
+              <span className="text-xs font-medium text-amber-600 dark:text-amber-400">
+                Unsaved changes
+              </span>
+            ) : (
+              <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                Saved
+              </span>
+            )}
+            
+            <Button 
+              size="sm" 
+              onClick={handleManualSave}
+              disabled={isSaving || !isDirty}
+              className="h-7 text-xs font-semibold px-3 cursor-pointer"
+            >
+              Save
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
       
       <div className="px-4">
         <EditorContent editor={editor} />

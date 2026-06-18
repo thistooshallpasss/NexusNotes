@@ -35,6 +35,20 @@ export default function ResponsiveLayout({ children }: { children: React.ReactNo
     }
   }, []);
 
+  // Listen for external collapse requests (e.g. from Reading Mode)
+  useEffect(() => {
+    const handleSetCollapsed = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail && typeof customEvent.detail.collapsed === 'boolean') {
+        setIsCollapsed(customEvent.detail.collapsed);
+      }
+    };
+    window.addEventListener('sidebar-set-collapsed', handleSetCollapsed);
+    return () => {
+      window.removeEventListener('sidebar-set-collapsed', handleSetCollapsed);
+    };
+  }, []);
+
   // Sync state changes with localStorage
   useEffect(() => {
     localStorage.setItem('sidebar_width', sidebarWidth.toString());
