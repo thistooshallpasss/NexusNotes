@@ -478,19 +478,13 @@ export default function PageView({ params }: { params: Promise<{ bookId: string;
         />
       </div>
 
-      <div className={`transition-all duration-300 ${
-        readingMode ? 'opacity-0 pointer-events-none' : 'opacity-100'
-      }`}>
-        <PageQuestionsSection 
-          bookId={resolvedParams.bookId} 
-          pageId={resolvedParams.pageId} 
-        />
-      </div>
+      <PageQuestionsSection 
+        bookId={resolvedParams.bookId} 
+        pageId={resolvedParams.pageId} 
+      />
 
       {/* Sibling Page Navigation */}
-      <div className={`flex items-center justify-between border-t border-zinc-200 dark:border-zinc-800 pt-6 mt-12 no-print transition-all duration-300 ${
-        readingMode ? 'opacity-0 pointer-events-none' : 'opacity-100'
-      }`}>
+      <div className="flex items-center justify-between border-t border-zinc-200 dark:border-zinc-800 pt-6 mt-12 no-print">
         <div>
           {prevPage ? (
             <Link 
