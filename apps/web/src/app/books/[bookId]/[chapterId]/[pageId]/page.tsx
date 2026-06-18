@@ -44,25 +44,28 @@ export default function PageView({ params }: { params: Promise<{ bookId: string;
   // Reading Mode State
   const [readingMode, setReadingMode] = useState(false);
   const [isMobileDevice, setIsMobileDevice] = useState(false);
-  const [fontSize, setFontSize] = useState<number>(16);
+  const [fontSize, setFontSize] = useState<number>(100);
 
   // Initialize font size from localStorage
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const savedFontSize = localStorage.getItem('nexus-font-size');
-      if (savedFontSize) {
-        const parsed = parseInt(savedFontSize, 10);
-        if (!isNaN(parsed) && parsed >= 12 && parsed <= 28) {
+      const savedScale = localStorage.getItem('nexus-font-scale');
+      if (savedScale) {
+        const parsed = parseInt(savedScale, 10);
+        if (!isNaN(parsed) && parsed >= 75 && parsed <= 225) {
           setFontSize(parsed);
         }
       }
     }
   }, []);
 
-  // Update localStorage when fontSize changes
-  const handleFontSizeChange = (newSize: number) => {
-    setFontSize(newSize);
-    localStorage.setItem('nexus-font-size', newSize.toString());
+  // Update localStorage and root styling custom property when fontSize changes
+  const handleFontSizeChange = (newScale: number) => {
+    setFontSize(newScale);
+    localStorage.setItem('nexus-font-scale', newScale.toString());
+    if (typeof document !== 'undefined') {
+      document.documentElement.style.setProperty('--app-font-scale', `${newScale}%`);
+    }
   };
 
   // Check for viewport width on mount to auto-trigger readingMode
@@ -260,7 +263,6 @@ export default function PageView({ params }: { params: Promise<{ bookId: string;
           ? 'max-w-[390px] reading-mode-active' 
           : 'max-w-4xl'
       }`}
-      style={{ '--reading-font-size': `${fontSize}px` } as React.CSSProperties}
     >
       {/* Breadcrumb Navigation & Exports */}
       {page.chapter && page.chapter.book && (

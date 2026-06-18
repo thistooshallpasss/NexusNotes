@@ -127,6 +127,7 @@
   }
   html {
     @apply font-sans;
+    font-size: var(--app-font-scale, 100%) !important;
   }
 }
 
@@ -248,30 +249,6 @@
 
 /* Reading Mode Custom Styles */
 .reading-mode-active .prose {
-  font-size: var(--reading-font-size, 16px) !important;
   max-width: 100% !important;
-  line-height: 1.7 !important;
-}
-
-.reading-mode-active .prose p,
-.reading-mode-active .prose li,
-.reading-mode-active .prose ul,
-.reading-mode-active .prose ol,
-.reading-mode-active .prose label,
-.reading-mode-active .prose span,
-.reading-mode-active .prose div:not([class*="monaco"]) {
-  font-size: inherit !important;
-  line-height: inherit !important;
-}
-
-.reading-mode-active .prose h1 {
-  font-size: calc(var(--reading-font-size, 16px) * 1.8) !important;
-}
-
-.reading-mode-active .prose h2 {
-  font-size: calc(var(--reading-font-size, 16px) * 1.5) !important;
-}
-
-.reading-mode-active .prose h3 {
-  font-size: calc(var(--reading-font-size, 16px) * 1.25) !important;
+  line-height: 1.75 !important;
 }
